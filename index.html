@@ -1,107 +1,292 @@
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html><html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Nearby Medical Services</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snake Bite: Nearby Medical Help (GPS + City)</title>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-jrQ3C4J9cZ6CwzWq2qvGJ6k5v8lq1b8Q7k8ZlPqzF1v7p6PZlZ5gD0XhQy4i2szS" crossorigin>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #map { height: 60vh; }
-    #controls { padding: 10px; background: #f5f5f5; }
-    select, button { padding: 5px; margin: 5px; }
-    #results { max-height: 40vh; overflow-y: auto; padding: 10px; }
-    .hospital { padding: 8px; border-bottom: 1px solid #ddd; }
-    .call-btn { background: green; color: white; padding: 5px; text-decoration: none; border-radius: 4px; }
+    :root{
+      --brand:#116466; --brand-2:#2c7a7b; --bg:#f4f9fb; --ink:#1f2937; --muted:#6b7280;
+      --ok:#065f46; --warn:#9a3412; --bad:#991b1b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+    header{background:var(--brand);color:#fff;padding:12px 16px;text-align:center;font-weight:800;letter-spacing:.3px}
+    main{flex:1;display:grid;grid-template-rows:auto auto 1fr;gap:10px;max-width:1100px;margin:0 auto;width:100%;padding:10px}.card{background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.06);padding:12px}
+h2{margin:6px 0 10px;color:var(--brand-2);font-size:1.1rem}
+
+/* Controls */
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls .group{display:flex;gap:6px;align-items:center}
+input,select,button{font:inherit}
+input[type=text]{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;min-width:220px}
+select{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px}
+.btn{background:var(--brand-2);color:#fff;border:none;padding:10px 14px;border-radius:10px;cursor:pointer}
+.btn.secondary{background:#e6fffb;color:#0f766e;border:1px solid #99f6e4}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #cbd5e1;border-radius:999px;padding:6px 10px;background:#fff;cursor:pointer}
+.chip input{margin:0}
+
+/* Map + list */
+#map{height:48vh;border-radius:14px;overflow:hidden}
+#results{max-height:40vh;overflow:auto;padding:6px}
+.item{border:1px solid #d1fae5;background:#f0fdfa;border-radius:12px;padding:10px;margin:6px 0}
+.name{font-weight:800;color:#065f46}
+.muted{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+a.link{color:var(--brand-2);text-decoration:none;font-weight:700}
+a.link:hover{text-decoration:underline}
+
+.status{margin-top:6px;padding:8px 10px;border-radius:10px;font-size:.95rem}
+.status.loading{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+.status.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+.status.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
+.status.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+
+footer{text-align:center;color:var(--muted);padding:10px}
+@media (max-width:720px){ #map{height:45vh} }
+
   </style>
 </head>
 <body>
+  <header>Snake Bite — Nearby Medical Help</header>
+  <main>
+    <!-- Search Controls -->
+    <section class="card">
+      <h2>Find Medical Help</h2>
+      <div class="controls">
+        <div class="group">
+          <button id="btnGPS" class="btn">Use My Location</button>
+          <select id="radius">
+            <option value="1000">1 km</option>
+            <option value="2000">2 km</option>
+            <option value="3000" selected>3 km</option>
+            <option value="5000">5 km</option>
+            <option value="10000">10 km</option>
+            <option value="20000">20 km</option>
+          </select>
+        </div>
+        <div class="group">
+          <input id="city" type="text" placeholder="Enter city/area/pincode (e.g., Thane, 400601)" />
+          <button id="btnCity" class="btn secondary">Search by City</button>
+        </div>
+        <div class="chips" aria-label="Filter categories">
+          <label class="chip"><input type="checkbox" value="hospital" checked> Hospital</label>
+          <label class="chip"><input type="checkbox" value="clinic" checked> Clinic</label>
+          <label class="chip"><input type="checkbox" value="pharmacy" checked> Pharmacy</label>
+        </div>
+      </div>
+      <div id="status" class="status">Tip: GPS is most accurate. If you deny permission, use city search.</div>
+    </section><!-- Map -->
+<section class="card">
+  <div id="map"></div>
+</section>
 
-<div id="controls">
-  <label>Search Radius:</label>
-  <select id="radius">
-    <option value="1000">1 km</option>
-    <option value="3000">3 km</option>
-    <option value="5000" selected>5 km</option>
-    <option value="10000">10 km</option>
-  </select>
-  <button onclick="findHospitals()">Find Nearby</button>
-</div>
+<!-- Results List -->
+<section class="card">
+  <h2>Results</h2>
+  <div id="results" class="muted">No results yet. Choose GPS or search by city.</div>
+</section>
 
-<div id="map"></div>
-<div id="results"></div>
+  </main>  <footer>© 2025 — Prototype (uses OpenStreetMap Overpass + Nominatim, no API key)</footer>  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-7bXE5H2Y0H7Hj3qfWZ4CUgny9Vg1B5C9xk1k6s7KxN0i4w9g1+X1v6q3i7k8G1m9" crossorigin></script>  <script>
+    // ===== Global state =====
+    let map, userMarker, markersLayer;
+    let abortCtrlOverpass = null, abortCtrlNominatim = null;
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-let map, userMarker, markersLayer;
+    // init map at India center by default
+    initMap(22.3511148, 78.6677428, 5);
 
-function initMap(lat, lon) {
-  map = L.map('map').setView([lat, lon], 14);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-  }).addTo(map);
+    function initMap(lat, lon, zoom=14){
+      if(!map){
+        map = L.map('map', {zoomControl:true}).setView([lat, lon], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
+        markersLayer = L.layerGroup().addTo(map);
+      } else {
+        map.setView([lat, lon], zoom);
+      }
+      if(!userMarker){
+        userMarker = L.marker([lat, lon], {title:'Search center'}).addTo(map);
+      } else {
+        userMarker.setLatLng([lat, lon]);
+      }
+    }
 
-  userMarker = L.marker([lat, lon]).addTo(map)
-    .bindPopup("You are here").openPopup();
+    // ===== UI elements =====
+    const elGPS   = document.getElementById('btnGPS');
+    const elCity  = document.getElementById('btnCity');
+    const elCityI = document.getElementById('city');
+    const elRadius= document.getElementById('radius');
+    const elStatus= document.getElementById('status');
+    const elRes   = document.getElementById('results');
 
-  markersLayer = L.layerGroup().addTo(map);
-}
+    elGPS.addEventListener('click', getGPSAndSearch);
+    elCity.addEventListener('click', ()=>searchByCity(elCityI.value));
 
-function findHospitals() {
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported");
-    return;
-  }
+    // enter key triggers city search
+    elCityI.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); searchByCity(elCityI.value); }});
 
-  navigator.geolocation.getCurrentPosition(async pos => {
-    let lat = pos.coords.latitude;
-    let lon = pos.coords.longitude;
-    if (!map) initMap(lat, lon);
-    else {
-      map.setView([lat, lon], 14);
+    function setStatus(text, kind='ok', loading=false){
+      elStatus.className = 'status ' + (loading? 'loading' : kind);
+      elStatus.textContent = text;
+    }
+
+    // ===== GPS Mode =====
+    async function getGPSAndSearch(){
+      if(!navigator.geolocation){
+        setStatus('Geolocation not supported by this browser.', 'err');
+        return;
+      }
+      setStatus('Getting precise GPS location…', 'loading', true);
+      navigator.geolocation.getCurrentPosition(async (pos)=>{
+        const { latitude:lat, longitude:lon, accuracy } = pos.coords;
+        const radius = parseInt(elRadius.value,10);
+        initMap(lat, lon, 14);
+        setStatus(`Location acquired (±${Math.round(accuracy)} m). Searching within ${(radius/1000)} km…`, 'loading', true);
+        const cats = getSelectedCategories();
+        await runOverpass(lat, lon, radius, cats);
+      }, (err)=>{
+        const msg = err.code===1? 'Permission denied. Use city search below.' : err.message;
+        setStatus('GPS error: '+msg, 'err');
+      }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+    }
+
+    // ===== City Mode (Nominatim -> coords -> Overpass) =====
+    async function searchByCity(query){
+      query = (query||'').trim();
+      if(!query){ setStatus('Type a city/area/pincode, then Search.', 'warn'); return; }
+      const radius = parseInt(elRadius.value,10);
+      setStatus('Finding location for "'+query+'"…', 'loading', true);
+      // cancel previous calls if any
+      if(abortCtrlNominatim) abortCtrlNominatim.abort();
+      abortCtrlNominatim = new AbortController();
+      try{
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(query);
+        const res = await fetch(url, { headers:{'Accept':'application/json','User-Agent':'snake-help-app/1.0'}, signal: abortCtrlNominatim.signal });
+        if(!res.ok) throw new Error('Nominatim HTTP '+res.status);
+        const js = await res.json();
+        if(!js.length){ setStatus('Could not find that place. Try a nearby area/pincode.', 'warn'); return; }
+        const lat = parseFloat(js[0].lat), lon = parseFloat(js[0].lon);
+        initMap(lat, lon, 13);
+        const cats = getSelectedCategories();
+        setStatus(`Located ${js[0].display_name}. Searching within ${(radius/1000)} km…`, 'loading', true);
+        await runOverpass(lat, lon, radius, cats);
+      }catch(e){
+        if(e.name === 'AbortError') return; // ignored
+        setStatus('City search failed: '+ e.message, 'err');
+      }
+    }
+
+    function getSelectedCategories(){
+      const checks = Array.from(document.querySelectorAll('.chips input[type=checkbox]'));
+      const sel = checks.filter(c=>c.checked).map(c=>c.value);
+      return sel.length? sel : ['hospital'];
+    }
+
+    // ===== Overpass search =====
+    async function runOverpass(lat, lon, radius, categories){
+      // Cancel any running Overpass request
+      if(abortCtrlOverpass) abortCtrlOverpass.abort();
+      abortCtrlOverpass = new AbortController();
+
+      const catsRegex = categories.join('|');
+      // Query nodes + ways + relations. Use out center to ensure geometry
+      const q = `[
+        out:json][timeout:25];
+        (
+          node["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
+          way["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
+          relation["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
+        );
+        out center;`;
+
+      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
+      setStatus('Contacting Overpass (free endpoint)…', 'loading', true);
+      showLoadingList();
+      markersLayer.clearLayers();
+
+      try{
+        const res = await fetch(url, { headers:{'Accept':'application/json'}, signal: abortCtrlOverpass.signal });
+        if(!res.ok) throw new Error('Overpass HTTP '+res.status);
+        const js = await res.json();
+        const elements = (js.elements||[]).map(e=>toPlace(e, lat, lon)).filter(Boolean).sort((a,b)=>a.dist - b.dist);
+        if(!elements.length){
+          elRes.innerHTML = '<div class="status warn">No results found in this radius. Try increasing it.</div>';
+          setStatus('No results found.', 'warn');
+          return;
+        }
+        renderResults(elements);
+        fitBoundsToResults(elements, lat, lon);
+        setStatus(`Found ${elements.length} place(s). Sorted by distance.`, 'ok');
+      }catch(e){
+        if(e.name === 'AbortError') return; // user started a new search
+        elRes.innerHTML = '<div class="status err">Request failed. The free Overpass server may be rate-limited. Try again in a few seconds.</div>';
+        setStatus('Overpass error: '+e.message, 'err');
+      }
+    }
+
+    function toPlace(el, refLat, refLon){
+      const t = el.tags || {};
+      const name = t.name || 'Unnamed';
+      const lat = el.lat || el.center?.lat; const lon = el.lon || el.center?.lon;
+      if(typeof lat !== 'number' || typeof lon !== 'number') return null;
+      const dist = haversine(refLat, refLon, lat, lon);
+      const addr = buildAddress(t);
+      const phone = t['contact:phone'] || t['phone'] || t['contact:mobile'] || '';
+      const amenity = t.amenity || '';
+      return { name, lat, lon, dist, addr, phone, amenity };
+    }
+
+    function buildAddress(t){
+      const parts = [ t['addr:housename'], t['addr:housenumber'], t['addr:street'], t['addr:suburb'], t['addr:city'], t['addr:state'], t['addr:postcode'] ].filter(Boolean);
+      return parts.join(', ');
+    }
+
+    function renderResults(items){
+      const fmtKm = m => (m<1000? (m.toFixed(0)+' m') : ((m/1000).toFixed(1)+' km'));
+      const frag = document.createDocumentFragment();
+      elRes.innerHTML = '';
+      items.forEach(it=>{
+        const div = document.createElement('div');
+        div.className = 'item';
+        const tel = normalizePhone(it.phone);
+        const maps = `https://www.google.com/maps/search/?api=1&query=${it.lat},${it.lon}`;
+        const osml = `https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lon}#map=18/${it.lat}/${it.lon}`;
+        div.innerHTML = `
+          <div class="name">${escapeHTML(it.name)}</div>
+          <div class="muted">${escapeHTML(it.addr || 'Address not available')}</div>
+          <div class="row"><span>Distance: <b>${fmtKm(it.dist)}</b></span> <span class="muted">• ${escapeHTML(it.amenity)}</span></div>
+          <div class="row" style="margin-top:4px">
+            ${ tel ? `<a class="link" href="tel:${tel}">Call</a>` : '<span class="muted">Phone not listed</span>' }
+            <a class="link" target="_blank" href="${maps}">Open in Google Maps</a>
+            <a class="link" target="_blank" href="${osml}">Open in OSM</a>
+          </div>`;
+        frag.appendChild(div);
+
+        // map marker
+        const m = L.marker([it.lat, it.lon]).bindPopup(`<b>${escapeHTML(it.name)}</b><br>${escapeHTML(it.addr || '')}`);
+        markersLayer.addLayer(m);
+      });
+      elRes.appendChild(frag);
+    }
+
+    function fitBoundsToResults(items, lat, lon){
+      // Include user marker + nearest results
+      const pts = items.slice(0, Math.min(30, items.length)).map(it=>[it.lat, it.lon]);
+      pts.push([lat, lon]);
+      const b = L.latLngBounds(pts);
+      map.fitBounds(b.pad(0.2));
       userMarker.setLatLng([lat, lon]);
     }
 
-    let radius = document.getElementById('radius').value;
-    let query = `
-      [out:json];
-      (
-        node["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
-        way["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
-        relation["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
-      );
-      out center;
-    `;
-    let url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+    function showLoadingList(){ elRes.innerHTML = '<div class="status loading">Loading places…</div>'; }
 
-    document.getElementById('results').innerHTML = "<p>Loading...</p>";
-    markersLayer.clearLayers();
-
-    let res = await fetch(url);
-    let data = await res.json();
-    let listHTML = "";
-
-    data.elements.forEach(el => {
-      let name = el.tags.name || "Unnamed";
-      let phone = el.tags.phone || el.tags.contact_phone || "";
-      let address = el.tags["addr:full"] || `${el.tags["addr:street"] || ""} ${el.tags["addr:city"] || ""}`;
-      let latlng = el.type === "node" ? [el.lat, el.lon] : [el.center.lat, el.center.lon];
-
-      markersLayer.addLayer(L.marker(latlng).bindPopup(`<b>${name}</b><br>${address}`));
-
-      listHTML += `<div class="hospital">
-        <strong>${name}</strong><br>
-        ${address || "No address"}<br>
-        ${phone ? `<a class="call-btn" href="tel:${phone}">Call</a>` : ""}
-      </div>`;
-    });
-
-    document.getElementById('results').innerHTML = listHTML || "<p>No results found.</p>";
-
-  }, err => {
-    alert("Error getting location: " + err.message);
-  }, { enableHighAccuracy: true });
-}
-</script>
-
-</body>
-  </html>
+    // Utils
+    function normalizePhone(p){ if(!p) return ''; p = String(p).split(/[;,\/]/)[0]; return p.replace(/\s+/g,''); }
+    function escapeHTML(s){ return String(s).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
+    function haversine(lat1, lon1, lat2, lon2){ const R=6371e3; const toRad=d=>d*Math.PI/180; const φ1=toRad(lat1),φ2=toRad(lat2); const dφ=toRad(lat2-lat1), dλ=toRad(lon2-lon1); const a=Math.sin(dφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+  </script></body>
+</html>
