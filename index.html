@@ -1,292 +1,427 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Snake Bite: Nearby Medical Help (GPS + City)</title>
-  <link rel="preconnect" href="https://unpkg.com" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-jrQ3C4J9cZ6CwzWq2qvGJ6k5v8lq1b8Q7k8ZlPqzF1v7p6PZlZ5gD0XhQy4i2szS" crossorigin>
-  <style>
-    :root{
-      --brand:#116466; --brand-2:#2c7a7b; --bg:#f4f9fb; --ink:#1f2937; --muted:#6b7280;
-      --ok:#065f46; --warn:#9a3412; --bad:#991b1b;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
-    header{background:var(--brand);color:#fff;padding:12px 16px;text-align:center;font-weight:800;letter-spacing:.3px}
-    main{flex:1;display:grid;grid-template-rows:auto auto 1fr;gap:10px;max-width:1100px;margin:0 auto;width:100%;padding:10px}.card{background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.06);padding:12px}
-h2{margin:6px 0 10px;color:var(--brand-2);font-size:1.1rem}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Snake Bite — Nearby Medical Help (Advanced UI)</title>
 
-/* Controls */
-.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.controls .group{display:flex;gap:6px;align-items:center}
-input,select,button{font:inherit}
-input[type=text]{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;min-width:220px}
-select{padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px}
-.btn{background:var(--brand-2);color:#fff;border:none;padding:10px 14px;border-radius:10px;cursor:pointer}
-.btn.secondary{background:#e6fffb;color:#0f766e;border:1px solid #99f6e4}
-.btn:disabled{opacity:.6;cursor:not-allowed}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #cbd5e1;border-radius:999px;padding:6px 10px;background:#fff;cursor:pointer}
-.chip input{margin:0}
+<!-- Opening_hours parser (for OSM opening_hours strings) -->
+<script src="https://unpkg.com/opening_hours/build/opening_hours+deps.min.js"></script>
 
-/* Map + list */
-#map{height:48vh;border-radius:14px;overflow:hidden}
-#results{max-height:40vh;overflow:auto;padding:6px}
-.item{border:1px solid #d1fae5;background:#f0fdfa;border-radius:12px;padding:10px;margin:6px 0}
-.name{font-weight:800;color:#065f46}
-.muted{color:var(--muted)}
-.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-a.link{color:var(--brand-2);text-decoration:none;font-weight:700}
-a.link:hover{text-decoration:underline}
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220a6;
+    --glass-bg: rgba(255,255,255,0.04);
+    --accent:#16a085;
+    --muted:#9aa6b2;
+    --glass-border: rgba(255,255,255,0.06);
+    --glass-blur: 10px;
+    --glass-radius:16px;
+    --glass-padding:16px;
+    --glass-shadow: 0 6px 30px rgba(2,6,23,0.6);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#08101a 0%, #0f1724 100%);
+    color:#e6eef3;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px;
+    gap:18px;
+  }
 
-.status{margin-top:6px;padding:8px 10px;border-radius:10px;font-size:.95rem}
-.status.loading{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
-.status.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
-.status.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
-.status.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  header{
+    width:100%; max-width:1100px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .brand{
+    display:flex;gap:12px;align-items:center;
+  }
+  .logo{
+    height:46px;width:46px;border-radius:10px;background:linear-gradient(135deg,#16a085,#2c7a7b);display:flex;align-items:center;justify-content:center;font-weight:800;color:#021418;font-size:18px;
+    box-shadow: 0 6px 20px rgba(22,160,133,0.12), inset 0 -4px 8px rgba(255,255,255,0.03);
+  }
+  h1{font-size:1.05rem;margin:0;}
+  .subtitle{color:var(--muted);font-size:0.9rem;margin-top:2px}
 
-footer{text-align:center;color:var(--muted);padding:10px}
-@media (max-width:720px){ #map{height:45vh} }
+  main{width:100%;max-width:1100px;display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
+  @media (max-width:980px){ main{grid-template-columns:1fr; width:100%} }
 
-  </style>
+  /* Left panel (controls + results) */
+  .panel{
+    background:var(--card);
+    border-radius:var(--glass-radius);
+    padding:var(--glass-padding);
+    backdrop-filter: blur(var(--glass-blur));
+    border:1px solid var(--glass-border);
+    box-shadow:var(--glass-shadow);
+    overflow:hidden;
+  }
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  .btn{
+    background:linear-gradient(180deg,var(--accent),#0fa285);
+    color:#021418;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px rgba(2,6,23,0.35);
+  }
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+  .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04);color:var(--muted)}
+  input[type=text], select{
+    padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));color:var(--muted);min-width:180px;
+  }
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.03);color:var(--muted);cursor:pointer;font-weight:600}
+  .chip input{margin-right:6px}
+
+  .status{
+    margin-top:8px;padding:10px;border-radius:10px;font-weight:700;color:#042926;background:linear-gradient(180deg,#bff1df,#dffbf2);display:inline-flex;gap:10px;align-items:center;
+  }
+  .status.warn{background:linear-gradient(180deg,#fff4d6,#fff9f0);color:#5c3a00}
+  .status.err{background:linear-gradient(180deg,#ffd6d6,#fff0f0);color:#7a0b0b}
+
+  /* results */
+  .results{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px;padding:12px;border:1px solid rgba(255,255,255,0.03);
+    transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  }
+  .card:hover{transform:translateY(-6px);box-shadow:0 14px 40px rgba(2,6,23,0.6)}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .title{font-weight:800;color:#e6fff8;font-size:1.02rem}
+  .muted{color:var(--muted);font-size:0.92rem}
+  .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{padding:6px 10px;border-radius:999px;font-weight:700}
+  .pill.open{background:linear-gradient(180deg,#ecfdf5,#bff1dd);color:#064e3b;border:1px solid rgba(6,78,59,0.12)}
+  .pill.closed{background:linear-gradient(180deg,#fff1f2,#ffd6d6);color:#7a0b0b;border:1px solid rgba(122,11,11,0.08)}
+  .action-links{display:flex;gap:8px;align-items:center}
+  .link{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;color:var(--muted);text-decoration:none;font-weight:700}
+  .link.call{background:linear-gradient(180deg,#16a085,#0f8f74);color:#021418;border:none}
+
+  /* right column: map + quick info */
+  .side{
+    display:flex;flex-direction:column;gap:12px;
+    position:relative;
+  }
+  #map{height:520px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);overflow:hidden}
+  @media (max-width:980px){ #map{height:320px} }
+
+  .panel-mini{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
+  .small{font-size:0.92rem;color:var(--muted)}
+
+  /* spinner */
+  .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.06);border-top-color:var(--accent);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  footer{color:var(--muted);font-size:0.9rem;margin-top:6px}
+</style>
 </head>
 <body>
-  <header>Snake Bite — Nearby Medical Help</header>
-  <main>
-    <!-- Search Controls -->
-    <section class="card">
-      <h2>Find Medical Help</h2>
-      <div class="controls">
-        <div class="group">
-          <button id="btnGPS" class="btn">Use My Location</button>
-          <select id="radius">
-            <option value="1000">1 km</option>
-            <option value="2000">2 km</option>
-            <option value="3000" selected>3 km</option>
-            <option value="5000">5 km</option>
-            <option value="10000">10 km</option>
-            <option value="20000">20 km</option>
-          </select>
-        </div>
-        <div class="group">
-          <input id="city" type="text" placeholder="Enter city/area/pincode (e.g., Thane, 400601)" />
-          <button id="btnCity" class="btn secondary">Search by City</button>
-        </div>
-        <div class="chips" aria-label="Filter categories">
-          <label class="chip"><input type="checkbox" value="hospital" checked> Hospital</label>
-          <label class="chip"><input type="checkbox" value="clinic" checked> Clinic</label>
-          <label class="chip"><input type="checkbox" value="pharmacy" checked> Pharmacy</label>
+
+<header>
+  <div class="brand">
+    <div class="logo">SB</div>
+    <div>
+      <h1>Snake Bite — Medical Help</h1>
+      <div class="subtitle">Find nearby hospitals, clinics & pharmacies — offline-free (OSM)</div>
+    </div>
+  </div>
+  <div class="small">Advanced UI • No API key required</div>
+</header>
+
+<main>
+  <!-- LEFT: Controls + Results -->
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-weight:800;font-size:1.05rem">Search medical help</div>
+        <div class="small" style="margin-top:6px">Use GPS or type city/area. Showing fields only when available.</div>
+      </div>
+      <div class="small">v1.0</div>
+    </div>
+
+    <div class="controls" style="margin-top:12px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnLocate" class="btn">Use My Location</button>
+        <select id="radius" title="Search radius">
+          <option value="1000">1 km</option>
+          <option value="2000">2 km</option>
+          <option value="3000" selected>3 km</option>
+          <option value="5000">5 km</option>
+          <option value="10000">10 km</option>
+          <option value="20000">20 km</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="cityInput" type="text" placeholder="Enter city / area / pincode (e.g., Pune, 411001)" />
+        <button id="btnCity" class="btn secondary">Search by City</button>
+      </div>
+
+      <div class="chips" style="margin-left:auto">
+        <label class="chip"><input type="checkbox" value="hospital" checked> Hospital</label>
+        <label class="chip"><input type="checkbox" value="clinic" checked> Clinic</label>
+        <label class="chip"><input type="checkbox" value="pharmacy" checked> Pharmacy</label>
+      </div>
+    </div>
+
+    <div id="status" style="margin-top:12px">
+      <div class="panel-mini small">Tip: allow location for best accuracy. If denied, use city search.</div>
+    </div>
+
+    <div class="results" id="results" style="margin-top:14px">
+      <!-- result cards appended here -->
+    </div>
+  </div>
+
+  <!-- RIGHT: Map + Quick info -->
+  <div class="side">
+    <div id="map" class="panel"></div>
+    <div class="panel-mini">
+      <div style="display:flex;justify-content:space-between">
+        <div><strong>Search quick tips</strong></div>
+        <div class="small muted">OSM • Overpass • Nominatim</div>
+      </div>
+      <ul style="margin:10px 0 0 16px;color:var(--muted);line-height:1.5">
+        <li>For best phone numbers & opening hours use entries having <code>phone</code> or <code>opening_hours</code> tags in OSM.</li>
+        <li>If hours missing, UI hides open/closed badge automatically.</li>
+        <li>Free Overpass endpoint may rate-limit briefly — try increasing radius if no results.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer>© 2025 Sunny • Prototype — Uses OpenStreetMap data (no API key)</footer>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* Advanced Dual-mode Hospital Finder — uses Overpass & Nominatim (no API keys)
+   - features: GPS or city search, radius & category filters, map, opening_hours parsing,
+   - hides fields when missing, shows distance, phone (if present), open/closed if opening_hours available.
+*/
+
+const map = L.map('map', {preferCanvas:true}).setView([21.1458,79.0882], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+let markersLayer = L.layerGroup().addTo(map);
+let userMarker = null;
+
+const elLocate = document.getElementById('btnLocate');
+const elCityBtn = document.getElementById('btnCity');
+const elCityIn = document.getElementById('cityInput');
+const elRadius = document.getElementById('radius');
+const elResults = document.getElementById('results');
+const elStatus = document.getElementById('status');
+const overpassBase = 'https://overpass-api.de/api/interpreter';
+
+let abortOverpass = null;
+let abortNominatim = null;
+
+// Helpers
+function setStatus(text, mode='info'){
+  if(mode==='loading'){
+    elStatus.innerHTML = `<div class="status" style="background:linear-gradient(180deg,#e0f9f1,#d6fff0);color:#024235"><span class="spinner"></span><span style="margin-left:8px">${text}</span></div>`;
+  } else if(mode==='warn'){
+    elStatus.innerHTML = `<div class="status warn">${text}</div>`;
+  } else if(mode==='err'){
+    elStatus.innerHTML = `<div class="status err">${text}</div>`;
+  } else {
+    elStatus.innerHTML = `<div class="panel-mini small">${text}</div>`;
+  }
+}
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371e3; const toRad=d=>d*Math.PI/180;
+  const φ1=toRad(lat1), φ2=toRad(lat2), Δφ=toRad(lat2-lat1), Δλ=toRad(lon2-lon1);
+  const a=Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  const c=2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c; // meters
+}
+function escapeHTML(s){ return String(s||'').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+function normalizePhone(p){ if(!p) return ''; p=String(p).split(/[;,/]/)[0]; return p.replace(/\s+/g,''); }
+function getSelectedCats(){ const checks = document.querySelectorAll('.chips input[type=checkbox]'); return Array.from(checks).filter(c=>c.checked).map(c=>c.value); }
+
+// UI: build card only showing available fields
+function buildCard(place, userLat, userLon){
+  const distM = haversine(userLat,userLon,place.lat,place.lon);
+  const distStr = distM < 1000 ? `${Math.round(distM)} m` : `${(distM/1000).toFixed(1)} km`;
+  const phone = normalizePhone(place.phone);
+  let openHtml = '';
+  if(place.opening){
+    try{
+      const oh = new opening_hours(place.opening, undefined, {map_value:{lat:place.lat, lon:place.lon}});
+      const isOpen = oh.getState();
+      const nextChange = oh.getNextChange();
+      const when = nextChange ? new Date(nextChange).toLocaleString() : '';
+      openHtml = isOpen ? `<span class="pill open">Open now</span>${when?` <span class="muted">until ${escapeHTML(when)}</span>`:''}` : `<span class="pill closed">Closed</span>${when?` <span class="muted">opens ${escapeHTML(when)}</span>`:''}`;
+    }catch(e){
+      openHtml = `<span class="muted">Hours: ${escapeHTML(place.opening)}</span>`;
+    }
+  }
+
+  const addrBlock = place.addr ? `<div class="muted">${escapeHTML(place.addr)}</div>` : '';
+  const phoneBlock = phone ? `<a class="link call" href="tel:${phone}">Call</a>` : `<div class="muted">Phone not listed</div>`;
+  const maps = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lon}`;
+  const osm = `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="row" style="align-items:flex-start">
+      <div>
+        <div class="title">${escapeHTML(place.name)}</div>
+        ${addrBlock}
+        <div class="small" style="margin-top:6px">Distance: <strong>${distStr}</strong> • <span class="muted">${escapeHTML(place.amenity||'')}</span></div>
+        ${openHtml? `<div style="margin-top:8px">${openHtml}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div class="meta">${phoneBlock}</div>
+        <div class="action-links">
+          <a class="link" target="_blank" href="${maps}">Maps</a>
+          <a class="link" target="_blank" href="${osm}">OSM</a>
         </div>
       </div>
-      <div id="status" class="status">Tip: GPS is most accurate. If you deny permission, use city search.</div>
-    </section><!-- Map -->
-<section class="card">
-  <div id="map"></div>
-</section>
+    </div>
+  `;
+  // animate in
+  card.style.opacity = 0; card.style.transform = 'translateY(8px)';
+  requestAnimationFrame(()=>{ card.style.transition = 'opacity .25s ease, transform .25s ease'; card.style.opacity=1; card.style.transform='translateY(0)';});
+  return card;
+}
 
-<!-- Results List -->
-<section class="card">
-  <h2>Results</h2>
-  <div id="results" class="muted">No results yet. Choose GPS or search by city.</div>
-</section>
+// Map helpers
+function setUserMarker(lat,lon){
+  if(!userMarker){ userMarker = L.circleMarker([lat,lon], {radius:8, color:'#16a085', fill:true, fillOpacity:0.95}).addTo(map); }
+  else userMarker.setLatLng([lat,lon]);
+}
+function fitMapToPlaces(centerLat, centerLon, places){
+  const pts = places.slice(0,50).map(p=>[p.lat,p.lon]);
+  pts.push([centerLat, centerLon]);
+  const bounds = L.latLngBounds(pts);
+  map.fitBounds(bounds.pad(0.2));
+}
 
-  </main>  <footer>© 2025 — Prototype (uses OpenStreetMap Overpass + Nominatim, no API key)</footer>  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-7bXE5H2Y0H7Hj3qfWZ4CUgny9Vg1B5C9xk1k6s7KxN0i4w9g1+X1v6q3i7k8G1m9" crossorigin></script>  <script>
-    // ===== Global state =====
-    let map, userMarker, markersLayer;
-    let abortCtrlOverpass = null, abortCtrlNominatim = null;
+// Convert Overpass element -> place object
+function elToPlace(e, refLat, refLon){
+  const tags = e.tags || {};
+  const lat = e.lat || e.center?.lat;
+  const lon = e.lon || e.center?.lon;
+  if(typeof lat !== 'number' || typeof lon !== 'number') return null;
+  const name = tags.name || 'Unnamed';
+  const addrParts = [tags['addr:housename'], tags['addr:housenumber'], tags['addr:street'], tags['addr:suburb'], tags['addr:city'], tags['addr:state'], tags['addr:postcode']].filter(Boolean);
+  const addr = addrParts.join(', ') || '';
+  const phone = tags['contact:phone'] || tags['phone'] || tags['contact:mobile'] || '';
+  const amenity = tags.amenity || '';
+  const opening = tags.opening_hours || '';
+  return { name, lat, lon, addr, phone, amenity, opening, dist: haversine(refLat,refLon,lat,lon) };
+}
 
-    // init map at India center by default
-    initMap(22.3511148, 78.6677428, 5);
+// Run Overpass search
+async function runOverpass(lat, lon, radius, categories){
+  // Cancel previous
+  if(abortOverpass) abortOverpass.abort();
+  abortOverpass = new AbortController();
 
-    function initMap(lat, lon, zoom=14){
-      if(!map){
-        map = L.map('map', {zoomControl:true}).setView([lat, lon], zoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19}).addTo(map);
-        markersLayer = L.layerGroup().addTo(map);
-      } else {
-        map.setView([lat, lon], zoom);
-      }
-      if(!userMarker){
-        userMarker = L.marker([lat, lon], {title:'Search center'}).addTo(map);
-      } else {
-        userMarker.setLatLng([lat, lon]);
-      }
+  setStatus('Searching nearby places…', 'loading');
+  elResults.innerHTML = ''; markersLayer.clearLayers();
+
+  const cats = categories.length ? categories.join('|') : 'hospital';
+  const q = `[out:json][timeout:25];(node["amenity"~"${cats}"](around:${radius},${lat},${lon});way["amenity"~"${cats}"](around:${radius},${lat},${lon});relation["amenity"~"${cats}"](around:${radius},${lat},${lon}););out center;`;
+  const url = overpassBase + '?data=' + encodeURIComponent(q);
+
+  try{
+    const res = await fetch(url, { signal: abortOverpass.signal, headers:{ 'Accept':'application/json' } });
+    if(!res.ok) throw new Error('Overpass HTTP '+res.status);
+    const json = await res.json();
+    const els = (json.elements || []);
+    const places = els.map(e => elToPlace(e, lat, lon)).filter(Boolean).sort((a,b)=>a.dist - b.dist);
+
+    if(!places.length){
+      setStatus('No places found in this radius. Try increasing radius.', 'warn');
+      return;
     }
+    // Render results & markers
+    const frag = document.createDocumentFragment();
+    places.forEach(p=>{
+      const card = buildCard(p, lat, lon);
+      frag.appendChild(card);
+      const marker = L.marker([p.lat,p.lon]).bindPopup(`<b>${escapeHTML(p.name)}</b><br>${escapeHTML(p.addr||'')}`);
+      markersLayer.addLayer(marker);
+    });
+    elResults.innerHTML = '';
+    elResults.appendChild(frag);
+    setUserMarker(lat, lon);
+    fitMapToPlaces(lat, lon, places);
+    setStatus(`Found ${places.length} result(s). Showing details for fields that exist.`, 'info');
+  }catch(err){
+    if(err.name === 'AbortError') return;
+    console.error(err);
+    setStatus('Search failed or Overpass rate-limited. Try again in a few seconds or increase radius.', 'err');
+  }
+}
 
-    // ===== UI elements =====
-    const elGPS   = document.getElementById('btnGPS');
-    const elCity  = document.getElementById('btnCity');
-    const elCityI = document.getElementById('city');
-    const elRadius= document.getElementById('radius');
-    const elStatus= document.getElementById('status');
-    const elRes   = document.getElementById('results');
+// Nominatim city -> coordinate
+async function searchByCityRaw(q, radius, cats){
+  if(!q) { setStatus('Please enter a city/area/pincode.', 'warn'); return; }
+  if(abortNominatim) abortNominatim.abort();
+  abortNominatim = new AbortController();
+  setStatus(`Resolving "${q}"…`, 'loading');
+  try{
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q);
+    const res = await fetch(url, { signal: abortNominatim.signal, headers:{ 'Accept':'application/json','User-Agent':'snake-help-app/1.0' } });
+    if(!res.ok) throw new Error('Nominatim HTTP '+res.status);
+    const js = await res.json();
+    if(!js.length){ setStatus('Place not found. Try a broader name or pincode.', 'warn'); return; }
+    const lat = parseFloat(js[0].lat), lon = parseFloat(js[0].lon);
+    setStatus(`Located: ${js[0].display_name}. Searching within ${radius/1000} km…`, 'loading');
+    await runOverpass(lat, lon, radius, cats);
+  }catch(e){
+    if(e.name === 'AbortError') return;
+    console.error(e);
+    setStatus('Location lookup failed. Try again.', 'err');
+  }
+}
 
-    elGPS.addEventListener('click', getGPSAndSearch);
-    elCity.addEventListener('click', ()=>searchByCity(elCityI.value));
+// EVENTS
+document.getElementById('btnLocate').addEventListener('click', async ()=>{
+  if(!navigator.geolocation){ setStatus('Geolocation not supported in this browser.', 'err'); return; }
+  setStatus('Requesting device location…', 'loading');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    const radius = parseInt(elRadius.value,10);
+    const cats = getSelectedCats();
+    setStatus(`Location acquired (±${Math.round(pos.coords.accuracy)} m). Searching ${radius/1000} km…`, 'loading');
+    await runOverpass(lat, lon, radius, cats);
+  }, err=>{
+    if(err.code === 1) setStatus('Location permission denied. Use city search instead.', 'err');
+    else setStatus('Location error: ' + err.message, 'err');
+  }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+});
 
-    // enter key triggers city search
-    elCityI.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); searchByCity(elCityI.value); }});
+document.getElementById('btnCity').addEventListener('click', ()=>{
+  const q = elCityIn.value.trim();
+  const radius = parseInt(elRadius.value,10);
+  const cats = getSelectedCats();
+  searchByCityRaw(q, radius, cats);
+});
+elCityIn.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btnCity').click(); }});
 
-    function setStatus(text, kind='ok', loading=false){
-      elStatus.className = 'status ' + (loading? 'loading' : kind);
-      elStatus.textContent = text;
-    }
+// initial status
+setStatus('Ready — allow location or search by city/area/pincode.');
 
-    // ===== GPS Mode =====
-    async function getGPSAndSearch(){
-      if(!navigator.geolocation){
-        setStatus('Geolocation not supported by this browser.', 'err');
-        return;
-      }
-      setStatus('Getting precise GPS location…', 'loading', true);
-      navigator.geolocation.getCurrentPosition(async (pos)=>{
-        const { latitude:lat, longitude:lon, accuracy } = pos.coords;
-        const radius = parseInt(elRadius.value,10);
-        initMap(lat, lon, 14);
-        setStatus(`Location acquired (±${Math.round(accuracy)} m). Searching within ${(radius/1000)} km…`, 'loading', true);
-        const cats = getSelectedCategories();
-        await runOverpass(lat, lon, radius, cats);
-      }, (err)=>{
-        const msg = err.code===1? 'Permission denied. Use city search below.' : err.message;
-        setStatus('GPS error: '+msg, 'err');
-      }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
-    }
+// expose small helper for console
+window.__app = { runOverpass, searchByCityRaw, setStatus };
 
-    // ===== City Mode (Nominatim -> coords -> Overpass) =====
-    async function searchByCity(query){
-      query = (query||'').trim();
-      if(!query){ setStatus('Type a city/area/pincode, then Search.', 'warn'); return; }
-      const radius = parseInt(elRadius.value,10);
-      setStatus('Finding location for "'+query+'"…', 'loading', true);
-      // cancel previous calls if any
-      if(abortCtrlNominatim) abortCtrlNominatim.abort();
-      abortCtrlNominatim = new AbortController();
-      try{
-        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=' + encodeURIComponent(query);
-        const res = await fetch(url, { headers:{'Accept':'application/json','User-Agent':'snake-help-app/1.0'}, signal: abortCtrlNominatim.signal });
-        if(!res.ok) throw new Error('Nominatim HTTP '+res.status);
-        const js = await res.json();
-        if(!js.length){ setStatus('Could not find that place. Try a nearby area/pincode.', 'warn'); return; }
-        const lat = parseFloat(js[0].lat), lon = parseFloat(js[0].lon);
-        initMap(lat, lon, 13);
-        const cats = getSelectedCategories();
-        setStatus(`Located ${js[0].display_name}. Searching within ${(radius/1000)} km…`, 'loading', true);
-        await runOverpass(lat, lon, radius, cats);
-      }catch(e){
-        if(e.name === 'AbortError') return; // ignored
-        setStatus('City search failed: '+ e.message, 'err');
-      }
-    }
-
-    function getSelectedCategories(){
-      const checks = Array.from(document.querySelectorAll('.chips input[type=checkbox]'));
-      const sel = checks.filter(c=>c.checked).map(c=>c.value);
-      return sel.length? sel : ['hospital'];
-    }
-
-    // ===== Overpass search =====
-    async function runOverpass(lat, lon, radius, categories){
-      // Cancel any running Overpass request
-      if(abortCtrlOverpass) abortCtrlOverpass.abort();
-      abortCtrlOverpass = new AbortController();
-
-      const catsRegex = categories.join('|');
-      // Query nodes + ways + relations. Use out center to ensure geometry
-      const q = `[
-        out:json][timeout:25];
-        (
-          node["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
-          way["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
-          relation["amenity"~"${catsRegex}"](around:${radius},${lat},${lon});
-        );
-        out center;`;
-
-      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
-      setStatus('Contacting Overpass (free endpoint)…', 'loading', true);
-      showLoadingList();
-      markersLayer.clearLayers();
-
-      try{
-        const res = await fetch(url, { headers:{'Accept':'application/json'}, signal: abortCtrlOverpass.signal });
-        if(!res.ok) throw new Error('Overpass HTTP '+res.status);
-        const js = await res.json();
-        const elements = (js.elements||[]).map(e=>toPlace(e, lat, lon)).filter(Boolean).sort((a,b)=>a.dist - b.dist);
-        if(!elements.length){
-          elRes.innerHTML = '<div class="status warn">No results found in this radius. Try increasing it.</div>';
-          setStatus('No results found.', 'warn');
-          return;
-        }
-        renderResults(elements);
-        fitBoundsToResults(elements, lat, lon);
-        setStatus(`Found ${elements.length} place(s). Sorted by distance.`, 'ok');
-      }catch(e){
-        if(e.name === 'AbortError') return; // user started a new search
-        elRes.innerHTML = '<div class="status err">Request failed. The free Overpass server may be rate-limited. Try again in a few seconds.</div>';
-        setStatus('Overpass error: '+e.message, 'err');
-      }
-    }
-
-    function toPlace(el, refLat, refLon){
-      const t = el.tags || {};
-      const name = t.name || 'Unnamed';
-      const lat = el.lat || el.center?.lat; const lon = el.lon || el.center?.lon;
-      if(typeof lat !== 'number' || typeof lon !== 'number') return null;
-      const dist = haversine(refLat, refLon, lat, lon);
-      const addr = buildAddress(t);
-      const phone = t['contact:phone'] || t['phone'] || t['contact:mobile'] || '';
-      const amenity = t.amenity || '';
-      return { name, lat, lon, dist, addr, phone, amenity };
-    }
-
-    function buildAddress(t){
-      const parts = [ t['addr:housename'], t['addr:housenumber'], t['addr:street'], t['addr:suburb'], t['addr:city'], t['addr:state'], t['addr:postcode'] ].filter(Boolean);
-      return parts.join(', ');
-    }
-
-    function renderResults(items){
-      const fmtKm = m => (m<1000? (m.toFixed(0)+' m') : ((m/1000).toFixed(1)+' km'));
-      const frag = document.createDocumentFragment();
-      elRes.innerHTML = '';
-      items.forEach(it=>{
-        const div = document.createElement('div');
-        div.className = 'item';
-        const tel = normalizePhone(it.phone);
-        const maps = `https://www.google.com/maps/search/?api=1&query=${it.lat},${it.lon}`;
-        const osml = `https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lon}#map=18/${it.lat}/${it.lon}`;
-        div.innerHTML = `
-          <div class="name">${escapeHTML(it.name)}</div>
-          <div class="muted">${escapeHTML(it.addr || 'Address not available')}</div>
-          <div class="row"><span>Distance: <b>${fmtKm(it.dist)}</b></span> <span class="muted">• ${escapeHTML(it.amenity)}</span></div>
-          <div class="row" style="margin-top:4px">
-            ${ tel ? `<a class="link" href="tel:${tel}">Call</a>` : '<span class="muted">Phone not listed</span>' }
-            <a class="link" target="_blank" href="${maps}">Open in Google Maps</a>
-            <a class="link" target="_blank" href="${osml}">Open in OSM</a>
-          </div>`;
-        frag.appendChild(div);
-
-        // map marker
-        const m = L.marker([it.lat, it.lon]).bindPopup(`<b>${escapeHTML(it.name)}</b><br>${escapeHTML(it.addr || '')}`);
-        markersLayer.addLayer(m);
-      });
-      elRes.appendChild(frag);
-    }
-
-    function fitBoundsToResults(items, lat, lon){
-      // Include user marker + nearest results
-      const pts = items.slice(0, Math.min(30, items.length)).map(it=>[it.lat, it.lon]);
-      pts.push([lat, lon]);
-      const b = L.latLngBounds(pts);
-      map.fitBounds(b.pad(0.2));
-      userMarker.setLatLng([lat, lon]);
-    }
-
-    function showLoadingList(){ elRes.innerHTML = '<div class="status loading">Loading places…</div>'; }
-
-    // Utils
-    function normalizePhone(p){ if(!p) return ''; p = String(p).split(/[;,\/]/)[0]; return p.replace(/\s+/g,''); }
-    function escapeHTML(s){ return String(s).replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
-    function haversine(lat1, lon1, lat2, lon2){ const R=6371e3; const toRad=d=>d*Math.PI/180; const φ1=toRad(lat1),φ2=toRad(lat2); const dφ=toRad(lat2-lat1), dλ=toRad(lon2-lon1); const a=Math.sin(dφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2; return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
-  </script></body>
+</script>
+</body>
 </html>
