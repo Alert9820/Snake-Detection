@@ -1,132 +1,350 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Snake Safety Assistant</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Nearby Medical Help — Final</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f8f9fa;
-        margin: 0;
-        padding: 0;
-        text-align: center;
-    }
-    header {
-        background: #4CAF50;
-        padding: 15px;
-        color: white;
-        font-size: 20px;
-    }
-    button {
-        padding: 10px 20px;
-        font-size: 16px;
-        margin-top: 15px;
-        background: #4CAF50;
-        border: none;
-        color: white;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    button:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-    }
-    .loading {
-        display: none;
-        margin-top: 20px;
-        font-size: 18px;
-        color: #333;
-    }
-    .timer {
-        font-weight: bold;
-        color: red;
-        margin-top: 5px;
-    }
-    .result {
-        margin-top: 20px;
-        padding: 15px;
-        background: white;
-        display: inline-block;
-        border-radius: 8px;
-        max-width: 90%;
-        text-align: left;
-    }
+  :root{
+    --bg:#071027; --card:#071827; --accent:#16a085; --muted:#9fb3bd; --glass:rgba(255,255,255,0.03);
+    --ok:#064e3b; --bad:#7a0b0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,-apple-system;min-height:100vh;background:linear-gradient(180deg,#06101a,#071827);color:#e6f3f2;display:flex;align-items:center;justify-content:center;padding:20px}
+  .frame{width:100%;max-width:920px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#2c7a7b);display:flex;align-items:center;justify-content:center;font-weight:900;color:#021418}
+  h1{margin:0;font-size:1.05rem}
+  .subtitle{color:var(--muted);font-size:0.92rem}
+  .card{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--glass);box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .btn{background:linear-gradient(180deg,var(--accent),#0fa285);color:#031916;border:none;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+  select,input{padding:9px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted)}
+  .status{margin-top:10px;padding:10px;border-radius:8px;background:linear-gradient(180deg,#e6fff4,#d6fff0);color:#064e3b;font-weight:700;display:inline-flex;align-items:center;gap:10px}
+  .status.warn{background:linear-gradient(180deg,#fff4d6,#fff9f0);color:#5c3a00}
+  .progress-wrap{height:10px;background:rgba(255,255,255,0.02);border-radius:999px;margin-top:10px;overflow:hidden}
+  .progress{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#0da68f);transition:width .2s linear}
+  .results{margin-top:14px;display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow:auto;padding-right:4px}
+  .place{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+  .left{flex:1}
+  .title{font-weight:800;font-size:1rem;margin-bottom:4px}
+  .muted{color:var(--muted);font-size:0.92rem}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .pill{padding:6px 8px;border-radius:999px;font-weight:800;font-size:0.85rem}
+  .pill.open{background:linear-gradient(180deg,#ecfdf5,#bff1dd);color:var(--ok);border:1px solid rgba(6,78,59,0.08)}
+  .pill.closed{background:linear-gradient(180deg,#fff1f2,#ffd6d6);color:var(--bad);border:1px solid rgba(122,11,11,0.08)}
+  .actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+  a.btn-link{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:8px 10px;border-radius:8px;text-decoration:none;font-weight:700}
+  a.btn-link.call{background:linear-gradient(180deg,var(--accent),#0fa285);color:#021916;border:none}
+  .hint{color:var(--muted);font-size:0.9rem;margin-top:10px}
+  .error{background:#fff0f0;color:#7a0b0b;padding:10px;border-radius:8px;margin-top:12px}
+  footer{margin-top:12px;color:var(--muted);font-size:0.9rem;text-align:center}
+  @media (max-width:720px){ .actions{align-items:flex-start} .place{flex-direction:column;align-items:stretch} }
 </style>
 </head>
 <body>
+  <div class="frame">
+    <header>
+      <div class="brand">
+        <div class="logo">SB</div>
+        <div>
+          <h1>Nearby Medical Help</h1>
+          <div class="subtitle">Find hospitals/clinics/pharmacies near you (fast)</div>
+        </div>
+      </div>
+      <div class="subtitle">No extra steps — tap to search</div>
+    </header>
 
-<header>🐍 Snake Safety Assistant</header>
+    <div class="card">
+      <div class="controls">
+        <button id="btnLocate" class="btn">Use My Location</button>
+        <select id="radius">
+          <option value="1000">1 km</option>
+          <option value="2000">2 km</option>
+          <option value="3000" selected>3 km</option>
+          <option value="5000">5 km</option>
+          <option value="10000">10 km</option>
+        </select>
+        <button id="btnClear" class="btn ghost">Clear</button>
+      </div>
 
-<button id="getLocationBtn">📍 Get My Location</button>
+      <div id="statusBox" style="display:block">
+        <div id="status" class="hint">Ready — allow location prompt when asked.</div>
+        <div class="progress-wrap" id="progressWrap" style="display:none"><div class="progress" id="progressBar"></div></div>
+      </div>
 
-<div class="loading" id="loading">
-    Fetching location... ⏳
-    <div class="timer" id="timer">0s</div>
-</div>
+      <div id="results" class="results"></div>
 
-<div id="result" class="result" style="display:none;"></div>
+      <div id="error" style="display:none" class="error"></div>
+      <div id="lastInfo" class="hint" style="display:none;margin-top:8px"></div>
+    </div>
+
+    <footer>© 2025 — Prototype. For production, hide API key with backend.</footer>
+  </div>
 
 <script>
-const API_KEY = "pk.7b31d58e4953f91caeb20647287b235d";
-const btn = document.getElementById("getLocationBtn");
-const loadingDiv = document.getElementById("loading");
-const timerEl = document.getElementById("timer");
-const resultDiv = document.getElementById("result");
+/* ---------- CONFIG ---------- */
+const API_KEY = "pk.7b31d58e4953f91caeb20647287b235d"; // your LocationIQ key
+const BASE_NEARBY = "https://us1.locationiq.com/v1/nearby";
+const CATEGORIES = ["hospital","clinic","pharmacy"]; // will query these tags in parallel
+const MAX_WAIT = 30; // seconds countdown shown; after that, stop trying
+const MAX_DISPLAY = 40; // max results to show
+/* ---------------------------- */
 
-let timerInterval;
+const btnLocate = document.getElementById('btnLocate');
+const btnClear = document.getElementById('btnClear');
+const radiusSel = document.getElementById('radius');
+const statusEl = document.getElementById('status');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const resultsEl = document.getElementById('results');
+const errorBox = document.getElementById('error');
+const lastInfo = document.getElementById('lastInfo');
 
-btn.addEventListener("click", () => {
-    btn.disabled = true;
-    loadingDiv.style.display = "block";
-    resultDiv.style.display = "none";
-    let seconds = 0;
-    timerEl.textContent = "0s";
-    timerInterval = setInterval(() => {
-        seconds++;
-        timerEl.textContent = seconds + "s";
-    }, 1000);
+let countdownTimer = null;
+let overallAbortController = null;
 
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(success, error, { timeout: 10000 });
-    } else {
-        alert("Geolocation is not supported by your browser.");
+// small helper: fetch with timeout and abort support
+function fetchWithTimeout(url, options={}, timeout=10000){
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const mergedSignal = options.signal ? mergeSignals(options.signal, signal) : signal;
+  const p = fetch(url, {...options, signal: mergedSignal});
+  const timeoutId = setTimeout(()=>controller.abort(), timeout);
+  return p.finally(()=>clearTimeout(timeoutId));
+}
+function mergeSignals(a,b){
+  const ctrl = new AbortController();
+  function onAbort(){ ctrl.abort(); }
+  if(a) a.addEventListener('abort', onAbort);
+  if(b) b.addEventListener('abort', onAbort);
+  return ctrl.signal;
+}
+
+function setStatus(text, type){
+  if(type === 'loading'){
+    statusEl.innerHTML = `<strong style="color:#064e3b">${text}</strong>`;
+  } else if(type === 'error'){
+    statusEl.innerHTML = `<span style="color:#f43f5e">${text}</span>`;
+  } else {
+    statusEl.textContent = text;
+  }
+}
+
+function startProgress(maxSeconds){
+  let start = Date.now();
+  clearInterval(countdownTimer);
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+  countdownTimer = setInterval(()=>{
+    const elapsed = (Date.now() - start)/1000;
+    const pct = Math.min(100, Math.round((elapsed/maxSeconds)*100));
+    progressBar.style.width = pct + '%';
+    if(elapsed >= maxSeconds){
+      clearInterval(countdownTimer);
+      progressWrap.style.display = 'none';
+      setStatus('Timed out — try again or increase radius.', 'error');
+      if(overallAbortController) overallAbortController.abort();
     }
-});
-
-function success(position) {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-
-    fetch(`https://us1.locationiq.com/v1/reverse?key=${API_KEY}&lat=${lat}&lon=${lon}&format=json`)
-        .then(response => response.json())
-        .then(data => {
-            clearInterval(timerInterval);
-            loadingDiv.style.display = "none";
-            btn.disabled = false;
-            resultDiv.style.display = "block";
-            resultDiv.innerHTML = `
-                <h3>📍 Your Location</h3>
-                <p><strong>Address:</strong> ${data.display_name}</p>
-                <p><strong>Latitude:</strong> ${lat}</p>
-                <p><strong>Longitude:</strong> ${lon}</p>
-            `;
-        })
-        .catch(() => {
-            clearInterval(timerInterval);
-            loadingDiv.style.display = "none";
-            btn.disabled = false;
-            alert("Failed to fetch location details.");
-        });
+  }, 200);
 }
 
-function error() {
-    clearInterval(timerInterval);
-    loadingDiv.style.display = "none";
-    btn.disabled = false;
-    alert("Unable to retrieve your location.");
+function stopProgress(){
+  clearInterval(countdownTimer);
+  progressWrap.style.display = 'none';
+  progressBar.style.width = '0%';
 }
+
+// build LocationIQ nearby URL for a tag
+function buildNearbyURL(lat, lon, radius, tag){
+  const params = new URLSearchParams({
+    key: API_KEY,
+    lat: lat,
+    lon: lon,
+    radius: radius,
+    format: 'json',
+    tag: `amenity:${tag}`
+  });
+  return `${BASE_NEARBY}?${params.toString()}`;
+}
+
+// Promise.any helper for first-resolved among array of Promises (works even if some reject)
+function promiseAny(promises){
+  return new Promise((resolve, reject)=>{
+    let rejections = 0;
+    const errors = [];
+    promises.forEach(p=>{
+      p.then(res => resolve(res)).catch(err=>{
+        errors.push(err);
+        rejections++;
+        if(rejections === promises.length) reject(new AggregateError(errors, 'All promises failed'));
+      });
+    });
+  });
+}
+
+// merge results from multiple tag-calls, dedupe by lat/lon
+function mergePlaces(arrs, refLat, refLon){
+  const map = new Map();
+  arrs.flat().forEach(item=>{
+    // LocationIQ returns properties; normalize lat/lon and compute distance
+    const lat = parseFloat(item.lat || item.latitude || item.location?.lat);
+    const lon = parseFloat(item.lon || item.longitude || item.location?.lon);
+    if(!isFinite(lat) || !isFinite(lon)) return;
+    const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    const name = item.name || item.display_name || item.address?.name || '';
+    const addr = item.address ? (item.address.road || item.address.city || item.display_name || '') : item.display_name || '';
+    const phone = item.phone || item.contact?.phone || '';
+    const dist = haversine(refLat, refLon, lat, lon);
+    const opening = item.opening_hours || item.hours || '';
+    if(!map.has(key) || map.get(key).dist > dist){
+      map.set(key, { name: name || 'Unnamed', addr, phone, lat, lon, dist, opening });
+    }
+  });
+  // convert map to sorted array
+  return Array.from(map.values()).sort((a,b) => a.dist - b.dist).slice(0, MAX_DISPLAY);
+}
+
+function haversine(lat1,lon1,lat2,lon2){
+  const R = 6371e3; const toRad = d => d*Math.PI/180;
+  const φ1 = toRad(lat1), φ2 = toRad(lat2), dφ = toRad(lat2-lat1), dλ = toRad(lon2-lon1);
+  const a = Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
+function renderPlaces(places){
+  resultsEl.innerHTML = '';
+  places.forEach(p=>{
+    const el = document.createElement('div');
+    el.className = 'place';
+    const left = document.createElement('div'); left.className = 'left';
+    const right = document.createElement('div'); right.className = 'actions';
+    left.innerHTML = `<div class="title">${escapeHTML(p.name)}</div>${p.addr ? `<div class="muted">${escapeHTML(p.addr)}</div>`: ''}`;
+    let metaHTML = `<div class="meta"><div class="muted">Distance: <strong>${p.dist <1000 ? Math.round(p.dist)+' m' : (p.dist/1000).toFixed(1)+' km'}</strong></div>`;
+    if(p.phone) metaHTML += `<div class="muted">Phone: <strong>${escapeHTML(p.phone)}</strong></div>`;
+    metaHTML += `</div>`;
+    left.innerHTML += metaHTML;
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+    right.innerHTML = `${p.phone ? `<a class="btn-link call" href="tel:${escapeHTML(p.phone)}">Call</a>` : ''}<a class="btn-link" target="_blank" href="${mapsUrl}">Open in Maps</a>`;
+    el.appendChild(left); el.appendChild(right);
+    // opening hours display if present
+    if(p.opening){
+      const ohSpan = document.createElement('div');
+      ohSpan.style.marginTop = '8px';
+      try{
+        const oh = new opening_hours(p.opening);
+        const isOpen = oh.getState();
+        const next = oh.getNextChange();
+        const when = next ? new Date(next).toLocaleString() : '';
+        ohSpan.innerHTML = isOpen ? `<span class="pill open">Open now</span> ${when? `<span class="muted">until ${escapeHTML(when)}</span>` : ''}` : `<span class="pill closed">Closed</span> ${when? `<span class="muted">opens ${escapeHTML(when)}</span>` : ''}`;
+      }catch(e){
+        ohSpan.innerHTML = `<div class="muted">Hours: ${escapeHTML(p.opening)}</div>`;
+      }
+      left.appendChild(ohSpan);
+    }
+    resultsEl.appendChild(el);
+  });
+}
+
+function escapeHTML(s){ return String(s||'').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+// save last session
+function saveLastSession(lat, lon, places){
+  try{ sessionStorage.setItem('lastSession', JSON.stringify({ ts: Date.now(), lat, lon, places })); lastInfo.style.display='block'; lastInfo.textContent='Last results saved for this session.';}catch(e){}
+}
+function loadLastSession(){
+  try{
+    const raw = sessionStorage.getItem('lastSession'); if(!raw) return;
+    const data = JSON.parse(raw); if(!data || !data.places) return;
+    lastInfo.style.display='block'; lastInfo.textContent='Showing last results (tap Use My Location to refresh).';
+    renderPlaces(data.places);
+  }catch(e){}
+}
+
+// MAIN: search using LocationIQ nearby for each category in parallel (fast)
+async function searchNearby(lat, lon, radius){
+  // create one request per category; we'll race them using Promise.any on endpoints for speed
+  overallAbortController = new AbortController();
+  startProgress(MAX_WAIT);
+  setStatus('Searching nearby places — this should be quick...', 'loading');
+
+  const calls = CATEGORIES.map(tag=>{
+    const url = buildNearbyURL(lat, lon, radius, tag);
+    // each call uses fetchWithTimeout
+    return fetchWithTimeout(url, { signal: overallAbortController.signal }, 8000)
+      .then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(js => {
+        // LocationIQ nearby returns an array typically — ensure format
+        if(Array.isArray(js)) return js;
+        if(js && js.results) return js.results;
+        return [];
+      })
+      .catch(err => {
+        // don't stop on single tag failure; return empty array
+        console.warn('tag fetch failed', tag, err);
+        return [];
+      });
+  });
+
+  // get all results (parallel) but if any are slow, we still proceed with what's available
+  // Promise.all with per-call timeouts above ensures we proceed
+  let arrays = [];
+  try{
+    arrays = await Promise.all(calls);
+  }catch(e){
+    arrays = []; // fallback
+  }
+
+  stopProgress();
+  setStatus('Processing results...', 'info');
+
+  const merged = mergePlaces(arrays, lat, lon);
+  if(!merged.length){
+    setStatus('No places found nearby. Try increasing radius.', 'error');
+    errorBox.style.display='block';
+    errorBox.textContent = 'No results returned for this area. Try larger radius or try again.';
+    return;
+  }
+  // render and save
+  renderPlaces(merged);
+  saveLastSession(lat, lon, merged);
+  setStatus(`Found ${merged.length} place(s) — showing available fields.`);
+}
+
+// get location and run search
+async function locateAndSearch(){
+  resultsEl.innerHTML=''; errorBox.style.display='none'; lastInfo.style.display='none';
+  if(!navigator.geolocation){ setStatus('Geolocation not supported by browser', 'error'); return; }
+  setStatus('Requesting location permission...', 'loading');
+  startProgress(MAX_WAIT);
+  // ask user for location
+  const pos = await new Promise((resolve, reject)=>{
+    const id = navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
+    // if it errors, reject will handle below
+  }).catch(err=>{
+    stopProgress();
+    setStatus('Location permission denied or error', 'error');
+    errorBox.style.display='block'; errorBox.textContent = 'Allow location access and try again.';
+    throw err;
+  });
+
+  // got coords
+  stopProgress();
+  const lat = pos.coords.latitude, lon = pos.coords.longitude;
+  setStatus('Location acquired — searching nearby...', 'loading');
+  // start actual search (with its own progress)
+  searchNearby(lat, lon, parseInt(radiusSel.value,10));
+}
+
+// clear
+btnLocate.addEventListener('click', ()=>{ if(overallAbortController) overallAbortController.abort(); locateAndSearch(); });
+btnClear.addEventListener('click', ()=>{ resultsEl.innerHTML=''; errorBox.style.display='none'; setStatus('Cleared.'); sessionStorage.removeItem('lastSession'); lastInfo.style.display='none'; });
+
+loadLastSession();
+setStatus('Ready — tap "Use My Location" to start.');
 </script>
-
 </body>
 </html>
