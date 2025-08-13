@@ -1,426 +1,354 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Snake Bite — Nearby Medical Help (Advanced UI)</title>
+<title>Nearby Medical Help — Quick</title>
 
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-<!-- Opening_hours parser (for OSM opening_hours strings) -->
+<!-- opening_hours parser -->
 <script src="https://unpkg.com/opening_hours/build/opening_hours+deps.min.js"></script>
 
 <style>
-  :root{
-    --bg:#0f1724;
-    --card:#0b1220a6;
-    --glass-bg: rgba(255,255,255,0.04);
-    --accent:#16a085;
-    --muted:#9aa6b2;
-    --glass-border: rgba(255,255,255,0.06);
-    --glass-blur: 10px;
-    --glass-radius:16px;
-    --glass-padding:16px;
-    --glass-shadow: 0 6px 30px rgba(2,6,23,0.6);
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    background: linear-gradient(180deg,#08101a 0%, #0f1724 100%);
-    color:#e6eef3;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    padding:24px;
-    gap:18px;
-  }
-
-  header{
-    width:100%; max-width:1100px;
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-  }
-  .brand{
-    display:flex;gap:12px;align-items:center;
-  }
-  .logo{
-    height:46px;width:46px;border-radius:10px;background:linear-gradient(135deg,#16a085,#2c7a7b);display:flex;align-items:center;justify-content:center;font-weight:800;color:#021418;font-size:18px;
-    box-shadow: 0 6px 20px rgba(22,160,133,0.12), inset 0 -4px 8px rgba(255,255,255,0.03);
-  }
-  h1{font-size:1.05rem;margin:0;}
-  .subtitle{color:var(--muted);font-size:0.9rem;margin-top:2px}
-
-  main{width:100%;max-width:1100px;display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
-  @media (max-width:980px){ main{grid-template-columns:1fr; width:100%} }
-
-  /* Left panel (controls + results) */
-  .panel{
-    background:var(--card);
-    border-radius:var(--glass-radius);
-    padding:var(--glass-padding);
-    backdrop-filter: blur(var(--glass-blur));
-    border:1px solid var(--glass-border);
-    box-shadow:var(--glass-shadow);
-    overflow:hidden;
-  }
-
-  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
-  .btn{
-    background:linear-gradient(180deg,var(--accent),#0fa285);
-    color:#021418;border:none;padding:10px 14px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px rgba(2,6,23,0.35);
-  }
-  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
-  .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04);color:var(--muted)}
-  input[type=text], select{
-    padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));color:var(--muted);min-width:180px;
-  }
-
-  .chips{display:flex;gap:8px;flex-wrap:wrap}
-  .chip{background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.03);color:var(--muted);cursor:pointer;font-weight:600}
-  .chip input{margin-right:6px}
-
-  .status{
-    margin-top:8px;padding:10px;border-radius:10px;font-weight:700;color:#042926;background:linear-gradient(180deg,#bff1df,#dffbf2);display:inline-flex;gap:10px;align-items:center;
-  }
-  .status.warn{background:linear-gradient(180deg,#fff4d6,#fff9f0);color:#5c3a00}
-  .status.err{background:linear-gradient(180deg,#ffd6d6,#fff0f0);color:#7a0b0b}
-
-  /* results */
-  .results{display:flex;flex-direction:column;gap:12px;margin-top:8px}
-  .card{
-    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:14px;padding:12px;border:1px solid rgba(255,255,255,0.03);
-    transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
-  }
-  .card:hover{transform:translateY(-6px);box-shadow:0 14px 40px rgba(2,6,23,0.6)}
-  .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
-  .title{font-weight:800;color:#e6fff8;font-size:1.02rem}
-  .muted{color:var(--muted);font-size:0.92rem}
-  .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .pill{padding:6px 10px;border-radius:999px;font-weight:700}
-  .pill.open{background:linear-gradient(180deg,#ecfdf5,#bff1dd);color:#064e3b;border:1px solid rgba(6,78,59,0.12)}
-  .pill.closed{background:linear-gradient(180deg,#fff1f2,#ffd6d6);color:#7a0b0b;border:1px solid rgba(122,11,11,0.08)}
-  .action-links{display:flex;gap:8px;align-items:center}
-  .link{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;color:var(--muted);text-decoration:none;font-weight:700}
-  .link.call{background:linear-gradient(180deg,#16a085,#0f8f74);color:#021418;border:none}
-
-  /* right column: map + quick info */
-  .side{
-    display:flex;flex-direction:column;gap:12px;
-    position:relative;
-  }
-  #map{height:520px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);overflow:hidden}
-  @media (max-width:980px){ #map{height:320px} }
-
-  .panel-mini{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03)}
-  .small{font-size:0.92rem;color:var(--muted)}
-
-  /* spinner */
-  .spinner{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.06);border-top-color:var(--accent);animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-
-  footer{color:var(--muted);font-size:0.9rem;margin-top:6px}
+  :root{ --bg:#071021; --card:#071827; --accent:#14b8a6; --muted:#9fb3bd; --ok:#0f5132; --bad:#7a0b0b }
+  *{box-sizing:border-box} html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto; background:linear-gradient(180deg,#06101a,#071827); color:#e6f3f2}
+  .wrap{max-width:760px;margin:28px auto;padding:18px}
+  h1{margin:0 0 12px;font-size:1.05rem}
+  .card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);padding:14px;border-radius:12px}
+  .controls{display:flex;gap:10px;align-items:center}
+  button{background:var(--accent);border:none;color:#021416;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+  .small{color:var(--muted);font-size:0.92rem}
+  #status{margin-top:12px}
+  .progress-wrap{height:10px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden;margin-top:10px}
+  .progress{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#0da68f);transition:width .3s linear}
+  .results{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+  .place{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+  .title{font-weight:800}
+  .muted{color:var(--muted);font-size:0.92rem;margin-top:6px}
+  .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .pill{padding:5px 8px;border-radius:999px;font-weight:700;font-size:.85rem}
+  .pill.open{background:#e6fff4;color:var(--ok);border:1px solid rgba(6,78,59,0.08)}
+  .pill.closed{background:#fff0f0;color:var(--bad);border:1px solid rgba(122,11,11,0.08)}
+  .error{background:#fff0f0;color:#7a0b0b;padding:10px;border-radius:8px;margin-top:12px}
+  .last{margin-top:12px;color:var(--muted);font-size:.85rem}
+  a.link{color:var(--accent);font-weight:700;text-decoration:none}
+  @media (max-width:520px){ .controls{flex-direction:column;align-items:stretch} button{width:100%} }
 </style>
 </head>
 <body>
-
-<header>
-  <div class="brand">
-    <div class="logo">SB</div>
-    <div>
-      <h1>Snake Bite — Medical Help</h1>
-      <div class="subtitle">Find nearby hospitals, clinics & pharmacies — offline-free (OSM)</div>
-    </div>
-  </div>
-  <div class="small">Advanced UI • No API key required</div>
-</header>
-
-<main>
-  <!-- LEFT: Controls + Results -->
-  <div class="panel">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+  <div class="wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
       <div>
-        <div style="font-weight:800;font-size:1.05rem">Search medical help</div>
-        <div class="small" style="margin-top:6px">Use GPS or type city/area. Showing fields only when available.</div>
+        <h1>Nearby Medical Help</h1>
+        <div class="small">Tap to find nearest hospitals/clinics/pharmacies</div>
       </div>
-      <div class="small">v1.0</div>
+      <div><button id="btnLocate">Use My Location</button></div>
     </div>
 
-    <div class="controls" style="margin-top:12px">
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="btnLocate" class="btn">Use My Location</button>
-        <select id="radius" title="Search radius">
-          <option value="1000">1 km</option>
-          <option value="2000">2 km</option>
-          <option value="3000" selected>3 km</option>
-          <option value="5000">5 km</option>
-          <option value="10000">10 km</option>
-          <option value="20000">20 km</option>
-        </select>
+    <div class="card">
+      <div id="status" class="small">Ready</div>
+
+      <div class="progress-wrap" style="display:none;margin-top:10px">
+        <div class="progress" id="progressBar"></div>
       </div>
 
-      <div style="display:flex;gap:8px;align-items:center">
-        <input id="cityInput" type="text" placeholder="Enter city / area / pincode (e.g., Pune, 411001)" />
-        <button id="btnCity" class="btn secondary">Search by City</button>
-      </div>
+      <div id="timer" class="small" style="margin-top:8px"></div>
 
-      <div class="chips" style="margin-left:auto">
-        <label class="chip"><input type="checkbox" value="hospital" checked> Hospital</label>
-        <label class="chip"><input type="checkbox" value="clinic" checked> Clinic</label>
-        <label class="chip"><input type="checkbox" value="pharmacy" checked> Pharmacy</label>
-      </div>
-    </div>
+      <div id="results" class="results"></div>
 
-    <div id="status" style="margin-top:12px">
-      <div class="panel-mini small">Tip: allow location for best accuracy. If denied, use city search.</div>
-    </div>
+      <div id="errorBox" style="display:none" class="error"></div>
 
-    <div class="results" id="results" style="margin-top:14px">
-      <!-- result cards appended here -->
+      <div class="last" id="lastSaved" style="display:none"></div>
     </div>
   </div>
-
-  <!-- RIGHT: Map + Quick info -->
-  <div class="side">
-    <div id="map" class="panel"></div>
-    <div class="panel-mini">
-      <div style="display:flex;justify-content:space-between">
-        <div><strong>Search quick tips</strong></div>
-        <div class="small muted">OSM • Overpass • Nominatim</div>
-      </div>
-      <ul style="margin:10px 0 0 16px;color:var(--muted);line-height:1.5">
-        <li>For best phone numbers & opening hours use entries having <code>phone</code> or <code>opening_hours</code> tags in OSM.</li>
-        <li>If hours missing, UI hides open/closed badge automatically.</li>
-        <li>Free Overpass endpoint may rate-limit briefly — try increasing radius if no results.</li>
-      </ul>
-    </div>
-  </div>
-</main>
-
-<footer>© 2025 Sunny • Prototype — Uses OpenStreetMap data (no API key)</footer>
-
-<!-- Leaflet -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-/* Advanced Dual-mode Hospital Finder — uses Overpass & Nominatim (no API keys)
-   - features: GPS or city search, radius & category filters, map, opening_hours parsing,
-   - hides fields when missing, shows distance, phone (if present), open/closed if opening_hours available.
+/* Minimal fast-version:
+   - Parallel Overpass endpoints (first successful wins)
+   - Loading progress + countdown (maxWait seconds)
+   - Shows only available fields (name, address, phone, distance, open/closed)
+   - Caches last result in sessionStorage
 */
 
-const map = L.map('map', {preferCanvas:true}).setView([21.1458,79.0882], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-let markersLayer = L.layerGroup().addTo(map);
-let userMarker = null;
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.fr/api/interpreter'
+];
 
-const elLocate = document.getElementById('btnLocate');
-const elCityBtn = document.getElementById('btnCity');
-const elCityIn = document.getElementById('cityInput');
-const elRadius = document.getElementById('radius');
-const elResults = document.getElementById('results');
-const elStatus = document.getElementById('status');
-const overpassBase = 'https://overpass-api.de/api/interpreter';
+// settings
+const MAX_WAIT = 120; // seconds (countdown shown). adjust if you want longer
+const RADIUS = 3000; // meters default search radius (3 km) - keeps results fast & small
 
-let abortOverpass = null;
-let abortNominatim = null;
+const btn = document.getElementById('btnLocate');
+const statusEl = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+const progWrap = document.querySelector('.progress-wrap');
+const progBar = document.getElementById('progressBar');
+const timerEl = document.getElementById('timer');
+const errorBox = document.getElementById('errorBox');
+const lastSaved = document.getElementById('lastSaved');
 
-// Helpers
-function setStatus(text, mode='info'){
-  if(mode==='loading'){
-    elStatus.innerHTML = `<div class="status" style="background:linear-gradient(180deg,#e0f9f1,#d6fff0);color:#024235"><span class="spinner"></span><span style="margin-left:8px">${text}</span></div>`;
-  } else if(mode==='warn'){
-    elStatus.innerHTML = `<div class="status warn">${text}</div>`;
-  } else if(mode==='err'){
-    elStatus.innerHTML = `<div class="status err">${text}</div>`;
-  } else {
-    elStatus.innerHTML = `<div class="panel-mini small">${text}</div>`;
-  }
+let countdownTimer = null;
+let startTime = 0;
+let overallAbort = null;
+
+function setStatus(text){
+  statusEl.textContent = text;
 }
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371e3; const toRad=d=>d*Math.PI/180;
-  const φ1=toRad(lat1), φ2=toRad(lat2), Δφ=toRad(lat2-lat1), Δλ=toRad(lon2-lon1);
-  const a=Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-  const c=2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R*c; // meters
-}
-function escapeHTML(s){ return String(s||'').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
-function normalizePhone(p){ if(!p) return ''; p=String(p).split(/[;,/]/)[0]; return p.replace(/\s+/g,''); }
-function getSelectedCats(){ const checks = document.querySelectorAll('.chips input[type=checkbox]'); return Array.from(checks).filter(c=>c.checked).map(c=>c.value); }
 
-// UI: build card only showing available fields
-function buildCard(place, userLat, userLon){
-  const distM = haversine(userLat,userLon,place.lat,place.lon);
-  const distStr = distM < 1000 ? `${Math.round(distM)} m` : `${(distM/1000).toFixed(1)} km`;
-  const phone = normalizePhone(place.phone);
-  let openHtml = '';
-  if(place.opening){
-    try{
-      const oh = new opening_hours(place.opening, undefined, {map_value:{lat:place.lat, lon:place.lon}});
-      const isOpen = oh.getState();
-      const nextChange = oh.getNextChange();
-      const when = nextChange ? new Date(nextChange).toLocaleString() : '';
-      openHtml = isOpen ? `<span class="pill open">Open now</span>${when?` <span class="muted">until ${escapeHTML(when)}</span>`:''}` : `<span class="pill closed">Closed</span>${when?` <span class="muted">opens ${escapeHTML(when)}</span>`:''}`;
-    }catch(e){
-      openHtml = `<span class="muted">Hours: ${escapeHTML(place.opening)}</span>`;
+function showProgress(show){
+  progWrap.style.display = show ? 'block' : 'none';
+  if(!show){ progBar.style.width = '0%'; timerEl.textContent = ''; }
+}
+
+function startCountdown(maxSeconds){
+  startTime = Date.now();
+  clearInterval(countdownTimer);
+  timerEl.textContent = `Waiting up to ${maxSeconds} s...`;
+  progBar.style.width = '0%';
+  countdownTimer = setInterval(()=>{
+    const elapsed = Math.floor((Date.now() - startTime)/1000);
+    const pct = Math.min(100, Math.round((elapsed/maxSeconds)*100));
+    progBar.style.width = pct + '%';
+    const remaining = Math.max(0, maxSeconds - elapsed);
+    timerEl.textContent = `Time left: ${remaining}s`;
+    if(remaining <= 0){
+      clearInterval(countdownTimer);
+      timerEl.textContent = `Search timed out (${maxSeconds}s).`;
+      stopOverall('timeout');
     }
+  }, 250);
+}
+
+function stopCountdown(){
+  clearInterval(countdownTimer);
+  timerEl.textContent = '';
+  progBar.style.width = '100%';
+}
+
+function stopOverall(reason){
+  if(overallAbort) overallAbort.abort();
+  showProgress(false);
+  if(reason === 'timeout'){
+    setStatus('Timed out. Try again or increase radius.');
+    errorBox.style.display = 'block';
+    errorBox.textContent = 'Search timed out. Overpass can be slow or rate-limited. Try again.';
+  } else if(reason === 'user'){
+    setStatus('Search cancelled.');
   }
-
-  const addrBlock = place.addr ? `<div class="muted">${escapeHTML(place.addr)}</div>` : '';
-  const phoneBlock = phone ? `<a class="link call" href="tel:${phone}">Call</a>` : `<div class="muted">Phone not listed</div>`;
-  const maps = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lon}`;
-  const osm = `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`;
-
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <div class="row" style="align-items:flex-start">
-      <div>
-        <div class="title">${escapeHTML(place.name)}</div>
-        ${addrBlock}
-        <div class="small" style="margin-top:6px">Distance: <strong>${distStr}</strong> • <span class="muted">${escapeHTML(place.amenity||'')}</span></div>
-        ${openHtml? `<div style="margin-top:8px">${openHtml}</div>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-        <div class="meta">${phoneBlock}</div>
-        <div class="action-links">
-          <a class="link" target="_blank" href="${maps}">Maps</a>
-          <a class="link" target="_blank" href="${osm}">OSM</a>
-        </div>
-      </div>
-    </div>
-  `;
-  // animate in
-  card.style.opacity = 0; card.style.transform = 'translateY(8px)';
-  requestAnimationFrame(()=>{ card.style.transition = 'opacity .25s ease, transform .25s ease'; card.style.opacity=1; card.style.transform='translateY(0)';});
-  return card;
 }
 
-// Map helpers
-function setUserMarker(lat,lon){
-  if(!userMarker){ userMarker = L.circleMarker([lat,lon], {radius:8, color:'#16a085', fill:true, fillOpacity:0.95}).addTo(map); }
-  else userMarker.setLatLng([lat,lon]);
-}
-function fitMapToPlaces(centerLat, centerLon, places){
-  const pts = places.slice(0,50).map(p=>[p.lat,p.lon]);
-  pts.push([centerLat, centerLon]);
-  const bounds = L.latLngBounds(pts);
-  map.fitBounds(bounds.pad(0.2));
+// utility: fetch with timeout and abort signal wrapper
+function fetchWithTimeout(url, options={}, timeoutSec=12){
+  const controller = new AbortController();
+  const id = setTimeout(()=>controller.abort(), timeoutSec*1000);
+  const combinedSignal = options.signal ? mergeSignals(options.signal, controller.signal) : controller.signal;
+  return fetch(url, {...options, signal: combinedSignal}).finally(()=>clearTimeout(id));
 }
 
-// Convert Overpass element -> place object
+// merge two AbortSignals into one signal object via AbortController proxy
+function mergeSignals(a,b){
+  const ctrl = new AbortController();
+  const onAbort = ()=>ctrl.abort();
+  if(a) a.addEventListener('abort', onAbort);
+  if(b) b.addEventListener('abort', onAbort);
+  return ctrl.signal;
+}
+
+// build Overpass query for given lat/lon and radius (search hospital/clinic/pharmacy)
+function buildOverpassQL(lat, lon, radius){
+  return `[out:json][timeout:25];
+(
+  node["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
+  way["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
+  relation["amenity"~"hospital|clinic|pharmacy"](around:${radius},${lat},${lon});
+);
+out center;`;
+}
+
+// try multiple endpoints in parallel, return first successful JSON, cancel others
+async function fetchFastOverpass(query){
+  overallAbort = new AbortController();
+  const controllers = [];
+  const attempts = OVERPASS_ENDPOINTS.map(endpoint=>{
+    const url = endpoint + '?data=' + encodeURIComponent(query);
+    // each fetch has its own timeout but use overallAbort to cancel all on success
+    return new Promise(async (resolve, reject)=>{
+      try{
+        const res = await fetchWithTimeout(url, { signal: overallAbort.signal }, 12);
+        if(!res.ok) return reject(new Error('HTTP '+res.status));
+        const js = await res.json();
+        // whoops, some endpoints may return empty or error; ensure valid
+        if(!js || !js.elements) return reject(new Error('No elements'));
+        // success -> abort others
+        overallAbort.abort();
+        resolve(js);
+      }catch(err){
+        reject(err);
+      }
+    });
+  });
+  // Promise.any gives first fulfilled, but older browsers may not support -> emulate
+  return promiseAny(attempts);
+}
+
+// Simple implementation of Promise.any -> resolves first fulfilled or rejects if all fail
+function promiseAny(promises){
+  return new Promise((resolve, reject)=>{
+    let rejections = 0;
+    const errors = [];
+    promises.forEach(p=>{
+      p.then(res=> resolve(res)).catch(err=>{
+        rejections++;
+        errors.push(err);
+        if(rejections === promises.length) reject(new AggregateError(errors, 'All failed'));
+      });
+    });
+  });
+}
+
+// convert element -> place object
 function elToPlace(e, refLat, refLon){
   const tags = e.tags || {};
-  const lat = e.lat || e.center?.lat;
-  const lon = e.lon || e.center?.lon;
+  const lat = e.lat || (e.center && e.center.lat);
+  const lon = e.lon || (e.center && e.center.lon);
   if(typeof lat !== 'number' || typeof lon !== 'number') return null;
   const name = tags.name || 'Unnamed';
-  const addrParts = [tags['addr:housename'], tags['addr:housenumber'], tags['addr:street'], tags['addr:suburb'], tags['addr:city'], tags['addr:state'], tags['addr:postcode']].filter(Boolean);
-  const addr = addrParts.join(', ') || '';
+  const addrParts = [tags['addr:street'], tags['addr:suburb'], tags['addr:city'], tags['addr:state'], tags['addr:postcode']].filter(Boolean);
+  const addr = addrParts.join(', ');
   const phone = tags['contact:phone'] || tags['phone'] || tags['contact:mobile'] || '';
-  const amenity = tags.amenity || '';
   const opening = tags.opening_hours || '';
-  return { name, lat, lon, addr, phone, amenity, opening, dist: haversine(refLat,refLon,lat,lon) };
+  const dist = haversine(refLat, refLon, lat, lon);
+  const amenity = tags.amenity || '';
+  return { name, addr, phone, opening, lat, lon, dist, amenity };
 }
 
-// Run Overpass search
-async function runOverpass(lat, lon, radius, categories){
-  // Cancel previous
-  if(abortOverpass) abortOverpass.abort();
-  abortOverpass = new AbortController();
+function haversine(lat1,lon1,lat2,lon2){
+  const R = 6371e3; const toRad = d => d*Math.PI/180;
+  const φ1 = toRad(lat1), φ2 = toRad(lat2), dφ = toRad(lat2-lat1), dλ = toRad(lon2-lon1);
+  const a = Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c; // meters
+}
 
-  setStatus('Searching nearby places…', 'loading');
-  elResults.innerHTML = ''; markersLayer.clearLayers();
+// render results (minimal, only available fields)
+function renderPlaces(places, refLat, refLon){
+  resultsEl.innerHTML = '';
+  places.forEach(p=>{
+    const el = document.createElement('div'); el.className = 'place';
+    let html = `<div class="title">${escapeHTML(p.name)}</div>`;
+    if(p.addr) html += `<div class="muted">${escapeHTML(p.addr)}</div>`;
+    html += `<div class="meta">`;
+    html += `<div class="small">Distance: <strong>${p.dist < 1000 ? Math.round(p.dist)+' m' : (p.dist/1000).toFixed(1)+' km'}</strong></div>`;
+    if(p.phone) html += `<div class="small"><a class="link" href="tel:${escapeHTML(p.phone)}">Call</a></div>`;
+    if(p.opening){
+      try{
+        const oh = new opening_hours(p.opening, undefined, {map_value:{lat:p.lat, lon:p.lon}});
+        const isOpen = oh.getState();
+        const next = oh.getNextChange();
+        const when = next ? new Date(next).toLocaleString() : '';
+        html += `<div>${ isOpen ? `<span class="pill open">Open now</span>` : `<span class="pill closed">Closed</span>` } ${ when ? `<span class="muted">(${escapeHTML(when)})</span>` : '' }</div>`;
+      }catch(e){
+        html += `<div class="muted">Hours: ${escapeHTML(p.opening)}</div>`;
+      }
+    }
+    html += `</div>`;
+    el.innerHTML = html;
+    resultsEl.appendChild(el);
+  });
+}
 
-  const cats = categories.length ? categories.join('|') : 'hospital';
-  const q = `[out:json][timeout:25];(node["amenity"~"${cats}"](around:${radius},${lat},${lon});way["amenity"~"${cats}"](around:${radius},${lat},${lon});relation["amenity"~"${cats}"](around:${radius},${lat},${lon}););out center;`;
-  const url = overpassBase + '?data=' + encodeURIComponent(q);
+// basic HTML escape
+function escapeHTML(s){ return String(s||'').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+// main flow
+async function findNearby(){
+  // reset
+  resultsEl.innerHTML = ''; errorBox.style.display='none'; lastSaved.style.display='none';
+  setStatus('Requesting location...');
+  showProgress(true);
+  startCountdown(MAX_WAIT);
+
+  // get GPS
+  if(!navigator.geolocation){
+    setStatus('Geolocation not supported.');
+    stopOverall('user');
+    return;
+  }
+
+  // wrap getCurrentPosition into promise
+  const pos = await new Promise((resolve, reject)=>{
+    const id = navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
+    // fallback: if user doesn't respond quickly, leave to timeout
+  }).catch(err=>{
+    stopOverall('user');
+    setStatus('Location error or permission denied.');
+    errorBox.style.display='block';
+    errorBox.textContent = 'Allow location and try again.';
+    throw err;
+  });
+
+  const lat = pos.coords.latitude, lon = pos.coords.longitude;
+  setStatus('Location acquired. Searching nearby...');
+  // build query
+  const q = buildOverpassQL(lat, lon, RADIUS);
 
   try{
-    const res = await fetch(url, { signal: abortOverpass.signal, headers:{ 'Accept':'application/json' } });
-    if(!res.ok) throw new Error('Overpass HTTP '+res.status);
-    const json = await res.json();
-    const els = (json.elements || []);
-    const places = els.map(e => elToPlace(e, lat, lon)).filter(Boolean).sort((a,b)=>a.dist - b.dist);
-
+    // parallel fetch - first success
+    const js = await fetchFastOverpass(q); // may reject if all endpoints fail
+    // parse elements
+    const elements = js.elements || [];
+    const places = elements.map(e => elToPlace(e, lat, lon)).filter(Boolean).sort((a,b)=>a.dist-b.dist);
     if(!places.length){
-      setStatus('No places found in this radius. Try increasing radius.', 'warn');
+      setStatus('No places found nearby. Try increasing radius.');
+      stopCountdown();
+      showProgress(false);
+      errorBox.style.display='block';
+      errorBox.textContent = 'No results in the search radius.';
+      // save empty results? skip
       return;
     }
-    // Render results & markers
-    const frag = document.createDocumentFragment();
-    places.forEach(p=>{
-      const card = buildCard(p, lat, lon);
-      frag.appendChild(card);
-      const marker = L.marker([p.lat,p.lon]).bindPopup(`<b>${escapeHTML(p.name)}</b><br>${escapeHTML(p.addr||'')}`);
-      markersLayer.addLayer(marker);
-    });
-    elResults.innerHTML = '';
-    elResults.appendChild(frag);
-    setUserMarker(lat, lon);
-    fitMapToPlaces(lat, lon, places);
-    setStatus(`Found ${places.length} result(s). Showing details for fields that exist.`, 'info');
-  }catch(err){
-    if(err.name === 'AbortError') return;
-    console.error(err);
-    setStatus('Search failed or Overpass rate-limited. Try again in a few seconds or increase radius.', 'err');
-  }
-}
-
-// Nominatim city -> coordinate
-async function searchByCityRaw(q, radius, cats){
-  if(!q) { setStatus('Please enter a city/area/pincode.', 'warn'); return; }
-  if(abortNominatim) abortNominatim.abort();
-  abortNominatim = new AbortController();
-  setStatus(`Resolving "${q}"…`, 'loading');
-  try{
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(q);
-    const res = await fetch(url, { signal: abortNominatim.signal, headers:{ 'Accept':'application/json','User-Agent':'snake-help-app/1.0' } });
-    if(!res.ok) throw new Error('Nominatim HTTP '+res.status);
-    const js = await res.json();
-    if(!js.length){ setStatus('Place not found. Try a broader name or pincode.', 'warn'); return; }
-    const lat = parseFloat(js[0].lat), lon = parseFloat(js[0].lon);
-    setStatus(`Located: ${js[0].display_name}. Searching within ${radius/1000} km…`, 'loading');
-    await runOverpass(lat, lon, radius, cats);
+    stopCountdown();
+    showProgress(false);
+    setStatus(`Found ${places.length} result(s).`);
+    renderPlaces(places, lat, lon);
+    // save last quick result to sessionStorage
+    try{ sessionStorage.setItem('lastPlaces', JSON.stringify({ts:Date.now(), lat, lon, places:places.slice(0,20)})); }catch(e){}
+    lastSaved.style.display='block';
+    lastSaved.textContent = 'Last results saved for this session.';
   }catch(e){
-    if(e.name === 'AbortError') return;
+    stopCountdown();
+    showProgress(false);
+    setStatus('Search failed or Overpass rate-limited.');
+    errorBox.style.display='block';
+    errorBox.textContent = 'Search failed. Overpass may be slow or rate-limited. Try again or increase radius.';
     console.error(e);
-    setStatus('Location lookup failed. Try again.', 'err');
   }
 }
 
-// EVENTS
-document.getElementById('btnLocate').addEventListener('click', async ()=>{
-  if(!navigator.geolocation){ setStatus('Geolocation not supported in this browser.', 'err'); return; }
-  setStatus('Requesting device location…', 'loading');
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    const radius = parseInt(elRadius.value,10);
-    const cats = getSelectedCats();
-    setStatus(`Location acquired (±${Math.round(pos.coords.accuracy)} m). Searching ${radius/1000} km…`, 'loading');
-    await runOverpass(lat, lon, radius, cats);
-  }, err=>{
-    if(err.code === 1) setStatus('Location permission denied. Use city search instead.', 'err');
-    else setStatus('Location error: ' + err.message, 'err');
-  }, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+// load cached last results if available
+function showLastIfAny(){
+  try{
+    const raw = sessionStorage.getItem('lastPlaces');
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(!data || !data.places) return;
+    lastSaved.style.display='block';
+    lastSaved.textContent = 'Showing last results from this session. Tap "Use My Location" to refresh.';
+    renderPlaces(data.places, data.lat, data.lon);
+  }catch(e){}
+}
+
+// wire button
+btn.addEventListener('click', ()=>{
+  // clear any existing aborts/timers
+  if(overallAbort) overallAbort.abort();
+  findNearby();
 });
 
-document.getElementById('btnCity').addEventListener('click', ()=>{
-  const q = elCityIn.value.trim();
-  const radius = parseInt(elRadius.value,10);
-  const cats = getSelectedCats();
-  searchByCityRaw(q, radius, cats);
-});
-elCityIn.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btnCity').click(); }});
-
-// initial status
-setStatus('Ready — allow location or search by city/area/pincode.');
-
-// expose small helper for console
-window.__app = { runOverpass, searchByCityRaw, setStatus };
+// initialize from last
+showLastIfAny();
+setStatus('Ready — tap Use My Location.');
 
 </script>
 </body>
